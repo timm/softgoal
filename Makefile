@@ -16,3 +16,10 @@ keys-lisp: ## same table via nfr5.lisp + rig.lisp (park-miller rng)
 	     n=$$(basename $$m .lisp | sed 's/^CS//'); \
 	     sbcl --script rig.lisp $$m $$n 2>/dev/null | tail -1; done \
 	 ) | column -s, -t
+
+.PHONY: tests
+tests: ## run tests/t*.lisp (2 dozen small models) through rig.lisp
+	@tests/run.sh
+
+~/tmp/tests.html: ## paint tests/run.sh results as an html strip chart
+	@mkdir -p ~/tmp; tests/run.sh | tests/paint.py > $@ && echo $@
