@@ -1,0 +1,10 @@
+;;;; small.lisp : GENERATED from small.py by to-lisp.py
+(<- built (or buy diy))
+(<- buy (and vendor (breaks cheap) (helps fast)))
+(<- diy (and coders (helps cheap) (hurts fast)))
+(<- deployed (or cloud onprem))
+(<- cloud (and (helps fast) (hurts private)))
+(<- onprem (and (makes private) (hurts fast)))
+(<- usable (and tested (helps fast)))
+(defparameter *hard* '(built deployed))
+(defparameter *soft* '(cheap fast private))

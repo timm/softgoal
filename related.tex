@@ -1,0 +1,414 @@
+\documentclass[sigconf,nonacm]{acmart}
+\usepackage{booktabs}
+\begin{document}
+
+\title{Inference, Not Just Notation:\\ Notes on Sampling-Based
+  Key Extraction for Goal Models}
+
+\author{Tim Menzies}
+\affiliation{\institution{}\city{}\country{}}
+\email{timm@ieee.org}
+
+\begin{abstract}
+Goal-oriented requirements engineering is rich in notations and
+comparatively poor in inference. These notes place a small
+artifact---a ${\sim}100$-line stochastic interpreter for
+softgoal graphs plus a delta-debugging key extractor---against
+that literature. We trace the ``requirements engineering
+equation'' from entailment to search, identify what the
+artifact should be compared against, list the open problems it
+touches and the functionality it adds, discuss how i* models
+relate to use cases (and whether ordering subgoals closes that
+gap), and assess the value of pairing this inference engine
+with LLM-based model extraction. All reference links were
+resolved and verified on 2026-08-16.
+\end{abstract}
+
+\maketitle
+
+\section{The artifact, in one paragraph}
+
+A goal model is a Python theory: \verb|built <= buy + diy|
+declares alternatives, \verb|buy <= vendor * breaks(cheap)|
+a conjunction with contribution links; hard goals gate a query
+and every softgoal is engaged and labeled in every sampled
+world. Worlds are drawn ISAMP-style---one guess per choice
+point, restart instead of backtrack, after Crawford and
+Baker~\cite{crawford94}. The best of $n_1{=}1000$ worlds (by
+distance to the heaven point of maximal quality satisfaction
+and minimal leaf purchases) is reduced to a \emph{key}: its
+settable labels, minus those every world agrees on, minimized
+by Zeller's ddmin~\cite{zeller02} under the test ``30 replays
+with this subset stay within $\epsilon$ of the best.'' The
+same interpreter replays seeds prudently (believed goals are
+settled; disjunctions prefer settled branches). On Horkoff's
+seven Kids Help Phone i* models---the corpus of the SHORT
+study~\cite{mathew17}---keys of 1--13 labels (1--8\% of model
+atoms) steer fresh samples to near the best found world; the
+whole corpus runs in about eight seconds.
+
+\section{The requirements engineering equation}
+
+The inference story of RE begins with Jackson's separation of
+the world and the machine~\cite{jackson95} and its
+crystallization by Zave and Jackson~\cite{zave97}: given
+specifications $S$ and domain knowledge $K$, requirements $R$
+are met when $S,K \vdash R$. Read literally, the turnstile
+makes RE a theorem-proving exercise, and much 1990s-era work
+took up exactly that reading. The rejoinder matured inside the
+Mylopoulos group: first a revised core ontology of the
+requirements problem~\cite{jureta08}, then, in 2010, Techne~\cite{jureta10},
+which recast the problem from \emph{proving} $R$ to
+\emph{finding} candidate solutions among mandatory and optional
+goals under preference---search, not deduction. A parallel
+line had long argued the abductive reading: requirements
+inference as the generation of assumption sets that explain
+desired goals~\cite{menzies96}.
+
+The present artifact is a blunt continuation of that
+trajectory: it treats the equation stochastically. Solutions
+are not proved or enumerated; they are \emph{sampled}, the best
+sample is compressed to the assumptions that matter, and the
+compressed answer is validated not by proof but by
+\emph{replay}---does re-asserting the key reproduce the
+quality? Where Techne asks ``which candidate solutions exist?''
+this asks ``which few commitments regenerate a good one on
+demand?''
+
+\section{Representation-rich, inference-poor}
+
+The representational lineage is long and healthy: the NFR
+framework's softgoals and contribution links~\cite{chung00},
+i*'s strategic actors~\cite{yu97}, KAOS's
+refinement calculus~\cite{vanlam01}, Tropos and its formal
+variant~\cite{fuxman04}, the community-standard cleanup of
+iStar~2.0~\cite{dalpiaz16}, lately restated in book form with
+a fuller worked example~\cite{dalpiaz24}, and GRL within the
+User Requirements Notation~\cite{amyot10}.
+
+Inference over these notations is thinner. The main families:
+
+\begin{itemize}
+\item \emph{Qualitative label propagation}, forward and
+  backward, from the NFR procedure~\cite{chung00} through its
+  formalization~\cite{giorgini02};
+\item \emph{SAT-based} minimum-cost satisfiability over goal
+  graphs~\cite{sebastiani04}, later generalized to
+  constrained goal models solved by Optimization Modulo
+  Theories~\cite{nguyen16};
+\item \emph{Interactive} evaluation that deliberately keeps a
+  human in the propagation loop~\cite{horkoff14};
+\item \emph{Metaheuristic search}: SHORT's polynomial-time key
+  ranking, evaluated against NSGA-II~\cite{mathew17}.
+\end{itemize}
+
+Horkoff and Yu's comparison of satisfaction analysis
+techniques~\cite{horkoff12} documents the asymmetry directly:
+many notations, few analysis procedures, little tooling, and
+results that rarely travel between notations. The extended
+systematic mapping of the field~\cite{horkoff19}---246
+top-cited GORE papers---quantifies it: proposals and
+formalizations dominate, while papers that \emph{evaluate}
+analyses remain scarce. That imbalance is an argument for
+cheap, executable baselines: an analysis that runs in seconds
+on the standard corpus lowers the price of the missing
+evaluations.
+
+Our niche in that map is \emph{simulation plus test-driven
+minimization}. The minimization side imports a lineage RE has
+barely used: ddmin~\cite{zeller02} and its modern probabilistic and
+weighted descendants~\cite{probdd24,wdd25}, and---closest in
+spirit---%
+prediction-preserving input minimization, which delta-debugs an
+input to the fragment that keeps an ML model's
+answer~\cite{suneja20}. We delta-debug an \emph{assumption set}
+to the fragment that keeps a \emph{stochastic simulator's}
+answer; to our knowledge that combination is new in RE.
+
+\paragraph{What to compare against.} Four baselines are
+natural, in increasing strength: (1)~SHORT itself, same corpus,
+same question (done: our keys are 1--8\% of atoms against their
+``often just 12\%''); (2)~exact optima from minimum-cost
+SAT~\cite{sebastiani04} or OMT~\cite{nguyen16} on the same
+models, giving the optimality gap of sampling; (3)~NSGA-II as
+the standard many-objective yardstick~\cite{mathew17}; and
+(4)~interactive evaluation~\cite{horkoff14} as the human
+baseline for ``how many decisions must a stakeholder actually
+make?''---which is what a key claims to bound.
+
+\section{Open problems; new functionality}
+
+\emph{Addressed.} (a)~\emph{Trade-space summarization}: rather
+than a Pareto front of hundreds of worlds, the output is a
+handful of labels a stakeholder can read, audit, and refuse.
+(b)~\emph{Validated recommendations}: keys are tested by
+replay, so ``do these five things'' arrives with a measured
+mean and variance, not a promise. (c)~\emph{Luck versus
+choice}: some models' best worlds are partly coin fortune from
+help/hurt links; no key can guarantee them, and the ratio of
+soft links predicts the gap. Naming that bound---what fraction
+of observed quality is \emph{decidable at all}---seems to be
+new. (d)~\emph{Scale of machinery}: two files, ${\sim}150$
+lines of code plus seven named constants, eight seconds per
+corpus; small enough for CI, classrooms, and audit.
+
+\emph{Enabled.} Seeded what-if analysis (assert any partial
+belief set, sample the consequences); ablation of stakeholder
+positions (drop one commitment from a key, watch the quality
+distribution move); prudence checking as a first-class
+operation (a claimed optimum that cannot be replayed from its
+own labels is an artifact---this check caught a real bug in
+our own port).
+
+\section{iStar 2.0 and use cases}
+
+iStar 2.0 and use cases answer different questions. A goal
+model is an \emph{intentional variability space}: why actors
+want things, which alternatives exist, how qualities trade.
+A use case is a \emph{behavioral contract}: actor--system
+interaction sequences, main and exceptional flows, pre- and
+post-conditions. The bridge has been walked in one direction:
+Santander and Castro derive use cases from i*
+models~\cite{santander02}, and the User Requirements Notation
+pairs GRL goal models with Use Case Maps precisely because
+neither view subsumes the other~\cite{amyot10}.
+
+\emph{Does ordering subgoals give use cases?} Partly. Our
+kernel is already closer than it looks: a bare body list runs
+in order (only the explicit \verb|and| shuffles), so
+\emph{sequence is one dialect convention away}, and worlds
+would become traces. That yields scenario skeletons: ordered,
+branching (via \verb|or|), abortable (a failed demand ends the
+trace). What it does not yield is what use cases are for:
+actor--system \emph{message} structure, alternative flows
+selected by \emph{conditions} rather than dice, interruption
+and resumption, and data. Order is necessary but not
+sufficient; the URN experience suggests keeping the two views
+linked rather than merging them. Recent benchmarks of LLM use
+case recovery~\cite{ucrbench25} suggest the behavioral side may
+soon be extractable too, which strengthens the two-view
+position.
+
+\section{LLMs as model extractors}
+
+Can LLMs read large documents and emit softgoal graphs?
+The extraction question is already an active subfield:
+comparative studies of LLMs for goal model
+extraction~\cite{chen24}, extraction from user
+stories~\cite{gunes24}, end-to-end generative goal
+modeling~\cite{gengoal25}, sobering evaluations of prompting
+limits~\cite{llmgoal26}, and extraction of requirements from
+upstream sources such as online user feedback~\cite{feedback25}.
+The 2025 systematic review of LLMs in RE~\cite{llm4re25}
+(74 studies, 2023--24) finds the field GPT-centric, zero- and
+few-shot, evaluated in controlled settings, and---most relevant
+here---rarely \emph{integrated into downstream workflows}: the
+models extract artifacts that nothing then consumes. The
+formal-methods community has begun sketching the missing loop,
+a two-way roadmap where LLMs draft formal artifacts and formal
+tools check them~\cite{roadmap25,formalsurvey25}. Extraction
+\emph{alone} is of limited value---it produces diagrams that
+humans must then read, and a 300-node hallucination-prone
+diagram is not obviously better than the document it
+summarizes.
+
+The added value appears when extraction feeds an inference
+engine like this one:
+
+\begin{itemize}
+\item \emph{Hallucination linting}: undefined or unlinked atoms
+  are mechanical to detect; a graph that cannot be sampled is
+  rejected before anyone reads it.
+\item \emph{Sanity by simulation}: label histograms over 1000
+  worlds expose absurd structure (a ``quality'' that is always
+  satisfied, a hard goal that never is) far faster than visual
+  inspection.
+\item \emph{Audit by key}: the human reviews 5--13 extracted
+  decisions---each traceable back to source text---instead of
+  the whole graph. The key becomes the interface between the
+  LLM's recall and the human's judgment.
+\item \emph{Robustness signals}: keys stable across seeds and
+  across re-extractions are evidence about the document; keys
+  that wobble localize where the LLM guessed.
+\end{itemize}
+
+The dialect helps here: the model \emph{is} Python
+(\verb|built <= buy + diy|), a friendlier LLM output target
+than XML interchange formats, and syntax errors fail fast.
+The risk is unchanged from all LLM pipelines---fluent wrong
+structure---but a key of ten auditable commitments is a far
+smaller attack surface than a diagram, and the replay test
+gives every extracted model a falsifiable claim to fail.
+
+\section{Conclusion}
+
+The field's imbalance is real: notations accumulated for three
+decades while inference stayed thin. The artifact described
+here is one more entry on the thin side---sampling as the
+solver, delta debugging as the explainer, replay as the
+validator---cheap enough to run anywhere and small enough to
+audit. Its natural next experiments are the optimality-gap
+comparison against exact solvers, a sequence-extended dialect
+evaluated against derived use cases, and an
+extract-lint-sample-key pipeline over real documents.
+
+\begin{thebibliography}{36}
+
+\bibitem{jackson95} M.~Jackson. The world and the machine.
+\emph{ICSE 1995}. \url{https://doi.org/10.1145/225014.225041}
+
+\bibitem{zave97} P.~Zave, M.~Jackson. Four dark corners of
+requirements engineering. \emph{ACM TOSEM} 6(1), 1997.
+\url{https://doi.org/10.1145/237432.237434}
+
+\bibitem{jureta08} I.~Jureta, J.~Mylopoulos, S.~Faulkner.
+Revisiting the core ontology and problem in requirements
+engineering. \emph{RE 2008}.
+\url{https://doi.org/10.1109/re.2008.13}
+
+\bibitem{jureta10} I.~Jureta, A.~Borgida, N.~Ernst,
+J.~Mylopoulos. Techne: Towards a new generation of requirements
+modeling languages. \emph{RE 2010}.
+\url{https://doi.org/10.1109/re.2010.24}
+
+\bibitem{menzies96} T.~Menzies. Applications of abduction:
+knowledge-level modelling. \emph{Int.\ J.\ Human-Computer
+Studies} 45(3), 1996.
+\url{https://doi.org/10.1006/ijhc.1996.0054}
+
+\bibitem{chung00} L.~Chung, B.~Nixon, E.~Yu, J.~Mylopoulos.
+\emph{Non-Functional Requirements in Software Engineering}.
+Springer, 2000.
+\url{https://doi.org/10.1007/978-1-4615-5269-7}
+
+\bibitem{yu97} E.~Yu. Towards modelling and reasoning support
+for early-phase requirements engineering. \emph{ISRE 1997}.
+\url{https://doi.org/10.1109/isre.1997.566873}
+
+\bibitem{vanlam01} A.~van Lamsweerde. Goal-oriented
+requirements engineering: a guided tour. \emph{RE 2001}.
+\url{https://doi.org/10.1109/isre.2001.948567}
+
+\bibitem{fuxman04} A.~Fuxman, L.~Liu, J.~Mylopoulos,
+M.~Pistore, M.~Roveri, P.~Traverso. Specifying and analyzing
+early requirements in Tropos. \emph{Requirements Engineering}
+9(2), 2004. \url{https://doi.org/10.1007/s00766-004-0191-7}
+
+\bibitem{dalpiaz16} F.~Dalpiaz, X.~Franch, J.~Horkoff. iStar
+2.0 language guide, 2016.
+\url{https://arxiv.org/abs/1605.07767}
+
+\bibitem{dalpiaz24} F.~Dalpiaz, X.~Franch, J.~Horkoff.
+Definition and use of iStar 2.0. In \emph{Social Modeling
+Using the i* Framework}, Springer, 2024.
+\url{https://doi.org/10.1007/978-3-031-72107-6_5}
+
+\bibitem{amyot10} D.~Amyot, S.~Ghanavati, J.~Horkoff,
+G.~Mussbacher, L.~Peyton, E.~Yu. Evaluating goal models within
+the goal-oriented requirement language. \emph{Int.\ J.\
+Intelligent Systems} 25(8), 2010.
+\url{https://doi.org/10.1002/int.20433}
+
+\bibitem{giorgini02} P.~Giorgini, J.~Mylopoulos,
+E.~Nicchiarelli, R.~Sebastiani. Reasoning with goal models.
+\emph{ER 2002}.
+\url{https://doi.org/10.1007/3-540-45816-6_22}
+
+\bibitem{sebastiani04} R.~Sebastiani, P.~Giorgini,
+J.~Mylopoulos. Simple and minimum-cost satisfiability for goal
+models. \emph{CAiSE 2004}.
+\url{https://doi.org/10.1007/978-3-540-25975-6_4}
+
+\bibitem{nguyen16} C.~M.~Nguyen, R.~Sebastiani, P.~Giorgini,
+J.~Mylopoulos. Multi-objective reasoning with constrained goal
+models. \emph{Requirements Engineering} 23, 2018.
+\url{https://doi.org/10.1007/s00766-016-0263-5}
+
+\bibitem{horkoff14} J.~Horkoff, E.~Yu. Interactive goal model
+analysis for early requirements engineering.
+\emph{Requirements Engineering} 21, 2016.
+\url{https://doi.org/10.1007/s00766-014-0209-8}
+
+\bibitem{horkoff12} J.~Horkoff, E.~Yu. Comparison and
+evaluation of goal-oriented satisfaction analysis techniques.
+\emph{Requirements Engineering} 18, 2013.
+\url{https://doi.org/10.1007/s00766-011-0143-y}
+
+\bibitem{mathew17} G.~Mathew, T.~Menzies, N.~Ernst, J.~Klein.
+SHORT: shortcutting the search for solutions in goal models,
+2017. \url{https://arxiv.org/abs/1702.05568}
+
+\bibitem{crawford94} J.~Crawford, A.~Baker. Experimental
+results on the application of satisfiability algorithms to
+scheduling problems. \emph{AAAI 1994}.
+\url{https://cdn.aaai.org/AAAI/1994/AAAI94-168.pdf}
+
+\bibitem{zeller02} A.~Zeller, R.~Hildebrandt. Simplifying and
+isolating failure-inducing input. \emph{IEEE TSE} 28(2), 2002.
+\url{https://doi.org/10.1109/32.988498}
+
+\bibitem{probdd24} M.~Zhang et al. Toward a better
+understanding of probabilistic delta debugging, 2024.
+\url{https://arxiv.org/abs/2408.04735}
+
+\bibitem{suneja20} S.~Suneja, Y.~Zheng, Y.~Zhuang, J.~Laredo,
+A.~Morari. Probing model signal-awareness via
+prediction-preserving input minimization, 2020.
+\url{https://arxiv.org/abs/2011.14934}
+
+\bibitem{santander02} V.~Santander, J.~Castro. Deriving use
+cases from organizational modeling. \emph{RE 2002}.
+\url{https://doi.org/10.1109/icre.2002.1048503}
+
+\bibitem{ucrbench25} UCRBench: benchmarking LLMs on use case
+recovery, 2025. \url{https://arxiv.org/abs/2512.13360}
+
+\bibitem{chen24} A comparative study of large language models
+for goal model extraction. \emph{MODELS Companion (SAM) 2024}.
+\url{https://doi.org/10.1145/3652620.3686246}
+
+\bibitem{gunes24} Goal model extraction from user stories
+using large language models. Springer LNCS, 2024.
+\url{https://doi.org/10.1007/978-3-031-70245-7_19}
+
+\bibitem{gengoal25} Generative goal modeling, 2025.
+\url{https://arxiv.org/abs/2509.01048}
+
+\bibitem{llmgoal26} Evaluating LLM-based goal extraction in
+requirements engineering: prompting strategies and their
+limitations, 2026. \url{https://arxiv.org/abs/2604.22207}
+
+\bibitem{horkoff19} J.~Horkoff, F.~Aydemir, E.~Cardoso,
+T.~Li, A.~Mat\'e, E.~Paja, M.~Salnitri, L.~Piras,
+J.~Mylopoulos, P.~Giorgini. Goal-oriented requirements
+engineering: an extended systematic mapping study.
+\emph{Requirements Engineering} 24, 2019.
+\url{https://doi.org/10.1007/s00766-017-0280-z}
+
+\bibitem{wdd25} R.~Wang et al. WDD: weighted delta debugging.
+\emph{ICSE 2025}.
+\url{https://doi.org/10.1109/ICSE55347.2025.00071}
+
+\bibitem{llm4re25} Large language models (LLMs) for
+requirements engineering (RE): a systematic literature review,
+2025. \url{https://arxiv.org/abs/2509.11446}
+
+\bibitem{roadmap25} Formal requirements engineering and large
+language models: a two-way roadmap. \emph{Information and
+Software Technology} 181, 2025.
+\url{https://doi.org/10.1016/j.infsof.2025.107697}
+
+\bibitem{formalsurvey25} A short survey on formalising
+software requirements using large language models, 2025.
+\url{https://arxiv.org/abs/2506.11874}
+
+\bibitem{feedback25} From online user feedback to
+requirements: evaluating large language models, 2025.
+\url{https://arxiv.org/abs/2510.23055}
+
+\bibitem{zadeh65} L.~Zadeh. Fuzzy sets. \emph{Information and
+Control} 8(3), 1965.
+\url{https://doi.org/10.1016/S0019-9958(65)90241-X}
+
+\end{thebibliography}
+\end{document}
