@@ -13,10 +13,14 @@ def src(name):
     note = re.sub(r"^\d+\s+", "", note)
     body = "\n".join(l for l in txt.splitlines()[1:] if not l.startswith("(defparameter"))
     return note, body
-def chips(name):
-    if name not in worlds: return ""
-    return '<div class="world">' + "".join(
-        f'<span class="{v}">{a}</span>' for a, v in (kv.split("=") for kv in worlds[name])) + "</div>"
+OPS = {"<-","&lt;-","and","or","seq","=","makes","breaks","helps","hurts","t","f"}
+def painted(name, body):
+    "clauses with every atom coloured by its label in the best world"
+    w = dict(kv.split("=") for kv in worlds.get(name, []))
+    def tok(m):
+        a = m.group(0)
+        return a if a in OPS else f'<span class="{w.get(a, "x")}">{a}</span>'
+    return re.sub(r"[^\s()]+", tok, html.escape(body.strip()))
 def dot(cls, x, label):
     return f'<span class="d {cls}" style="left:{x}%" title="{label} = {x}"></span>'
 out=[]; crashes=0; fams={}
@@ -39,20 +43,21 @@ for f, rs in fams.items():
         out.append(f'''<details open class="row{" bad" if crash else ""}"><summary><table><tr>
 <td class="name"><b>{name[4:]}</b><small>{html.escape(note)}</small></td>
 <td class="plot">{plot}</td>{nums}</tr></table></summary>
-<div class="open"><pre>{html.escape(body.strip())}</pre>{chips(name)}</div></details>''')
+<pre>{painted(name, body)}</pre></details>''')
     out.append('</div>')
 ok=len(rows)-crashes
 print(f'''<title>nfr5 Test Strip</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
 <style>
 :root{{--bg:#f9f9f7;--sf:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--mute:#898781;--grid:#e1e0d9;--axis:#c3c2b7;
---mu:#2a78d6;--best:#eb6834;--seed:#1baf7a;--crash:#d03b3b;--crashbg:#fbeaea}}
-@media(prefers-color-scheme:dark){{:root:not([data-theme=light]){{--bg:#0d0d0d;--sf:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--grid:#2c2c2a;--axis:#383835;--mu:#3987e5;--best:#d95926;--seed:#199e70;--crashbg:#3a1c1c}}}}
-:root[data-theme=dark]{{--bg:#0d0d0d;--sf:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--grid:#2c2c2a;--axis:#383835;--mu:#3987e5;--best:#d95926;--seed:#199e70;--crashbg:#3a1c1c}}
+--mu:#2a78d6;--best:#eb6834;--seed:#1baf7a;--crash:#d03b3b;--crashbg:#fbeaea;--t:#006300;--f:#d03b3b}}
+@media(prefers-color-scheme:dark){{:root:not([data-theme=light]){{--bg:#0d0d0d;--sf:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--grid:#2c2c2a;--axis:#383835;--mu:#3987e5;--best:#d95926;--seed:#199e70;--crashbg:#3a1c1c;--t:#0ca30c;--f:#e66767}}}}
+:root[data-theme=dark]{{--bg:#0d0d0d;--sf:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--grid:#2c2c2a;--axis:#383835;--mu:#3987e5;--best:#d95926;--seed:#199e70;--crashbg:#3a1c1c;--t:#0ca30c;--f:#e66767}}
 body{{background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif;margin:0;padding:2rem 1rem 4rem}}
 main{{max-width:62rem;margin:0 auto}}
 h1{{font:600 1.6rem/1.2 "IBM Plex Mono",monospace;margin:0 0 .25rem;text-wrap:balance}}
 h2{{font:600 .8rem/1 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin:2rem 0 .5rem;border-bottom:1px solid var(--grid);padding-bottom:.4rem}}
+.lt{{color:var(--t)}} .lf{{color:var(--f)}}
 p.lede{{color:var(--ink2);max-width:65ch;margin:0 0 .75rem}}
 .verdict{{display:flex;gap:1.5rem;font-family:"IBM Plex Mono",monospace;font-size:.9rem;margin:1rem 0}}
 .verdict b{{font-size:1.6rem;display:block;line-height:1}}
@@ -74,17 +79,12 @@ td.num{{width:3.2rem;text-align:right;font:.85rem "IBM Plex Mono",monospace;font
 .rng{{position:absolute;top:10px;height:2px;background:var(--axis)}}
 .d{{position:absolute;top:6px;width:10px;height:10px;margin-left:-5px;border-radius:50%;border:2px solid var(--sf);box-sizing:content-box}}
 .d.mu{{background:var(--mu)}} .d.best{{background:var(--best)}} .d.seed{{background:var(--seed)}}
-.open{{display:grid;grid-template-columns:minmax(0,1fr) 16rem;gap:1rem;background:var(--bg);padding:.5rem 1rem .7rem;border-top:1px dashed var(--grid)}}
-.world{{display:flex;flex-wrap:wrap;gap:.3rem;align-content:flex-start;font:.75rem "IBM Plex Mono",monospace}}
-.world::before{{content:"best world";flex-basis:100%;color:var(--mute);font-size:.65rem;letter-spacing:.05em;text-transform:uppercase}}
-.world span{{padding:0 .4rem;border-radius:3px;border:1px solid var(--axis);line-height:1.5}}
-.world span.t{{background:var(--ink);color:var(--sf);border-color:var(--ink)}}
-.world span.f{{color:var(--ink2);text-decoration:line-through}}
-pre{{margin:0;padding:0;font:.8rem/1.45 "IBM Plex Mono",monospace;color:var(--ink2);background:var(--bg);overflow-x:auto;white-space:pre}}
+pre .t{{color:var(--t);font-weight:600}} pre .f{{color:var(--f);font-weight:600}} pre .x{{color:var(--ink)}}
+pre{{margin:0;padding:.5rem 1rem .7rem;border-top:1px dashed var(--grid);font:.8rem/1.45 "IBM Plex Mono",monospace;color:var(--ink2);background:var(--bg);overflow-x:auto;white-space:pre}}
 </style>
 <main>
 <h1>nfr5 Test Strip</h1>
-<p class="lede">Two dozen tiny goal models, each built to exercise one branch of <code>nfr5.lisp</code>'s sampler or <code>rig.lisp</code>'s keys pipeline. Each strip is distance-to-heaven on 0–100: lower is better. Under each: its clauses, and the best world's labels — filled = t, struck = f.</p>
+<p class="lede">Two dozen tiny goal models, each built to exercise one branch of <code>nfr5.lisp</code>'s sampler or <code>rig.lisp</code>'s keys pipeline. Each strip is distance-to-heaven on 0–100: lower is better. Under each, its clauses painted by the best world: <b class="lt">green = t</b>, <b class="lf">red = f</b>, plain = never labeled.</p>
 <div class="verdict"><div><b>{ok}</b>ran</div><div class="c"><b>{crashes}</b>crashed</div><div><b>{len(rows)}</b>models</div></div>
 <div class="legend"><span><i style="background:var(--mu)"></i>mu, all sampled worlds</span><span><i style="background:var(--best)"></i>best world</span><span><i style="background:var(--seed)"></i>mu of seed replays</span></div>
 <div class="cols"><span>model</span><span>d2h 0 · 25 · 50 · 75 · 100</span><span>cands</span><span>seed</span><span>tests</span><span>pct</span></div>
