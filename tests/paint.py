@@ -12,8 +12,11 @@ def src(name):
     note = txt.splitlines()[0].lstrip("; ")
     note = re.sub(r"^\d+\s+", "", note)
     body = "\n".join(l for l in txt.splitlines()[1:] if not l.startswith("(defparameter"))
+    goals = "\n".join(re.sub(r"\(defparameter \*(\w+)\* \(quote (\(.*\))\)\)", r"\1: \2", l)
+                      for l in txt.splitlines() if l.startswith("(defparameter"))
+    body += "\n\n" + goals
     return note, body
-OPS = {"<-","&lt;-","and","or","seq","=","makes","breaks","helps","hurts","t","f"}
+OPS = {"<-","&lt;-","hard:","soft:","and","or","seq","=","makes","breaks","helps","hurts","t","f"}
 def painted(name, body):
     "clauses with every atom coloured by its label in the best world"
     w = dict(kv.split("=") for kv in worlds.get(name, []))
