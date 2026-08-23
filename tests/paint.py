@@ -2,7 +2,9 @@
 """paint.py: tests/run.sh CSV (stdin) + tests/t*.lisp  ==>  HTML report (stdout)."""
 import csv, sys, glob, os, html, re
 HERE = os.path.dirname(os.path.abspath(__file__))
-rows = list(csv.DictReader(sys.stdin))
+lines = [l.rstrip("\n") for l in sys.stdin]
+worlds = {l.split(",")[1]: l.split(",")[2:] for l in lines if l.startswith("best,")}
+rows = list(csv.DictReader(l for l in lines if not l.startswith("best,")))
 FAMILY = {range(1,11):"Structural", range(11,18):"Logical", range(18,23):"Replay & keys", range(23,25):"Stochastic"}
 def fam(n): return next(v for k,v in FAMILY.items() if n in k)
 def src(name):
@@ -11,6 +13,10 @@ def src(name):
     note = re.sub(r"^\d+\s+", "", note)
     body = "\n".join(l for l in txt.splitlines()[1:] if not l.startswith("(defparameter"))
     return note, body
+def chips(name):
+    if name not in worlds: return ""
+    return '<div class="world">' + "".join(
+        f'<span class="{v}">{a}</span>' for a, v in (kv.split("=") for kv in worlds[name])) + "</div>"
 def dot(cls, x, label):
     return f'<span class="d {cls}" style="left:{x}%" title="{label} = {x}"></span>'
 out=[]; crashes=0; fams={}
@@ -30,10 +36,10 @@ for f, rs in fams.items():
             plot=(f'<div class="strip"><span class="rng" style="left:{lo}%;width:{hi-lo}%"></span>'
                   +dot("mu",mu,"mu")+dot("best",best,"best")+dot("seed",seed,"muSeed")+'</div>')
             nums=f'<td class="num">{r["n_filt"]}</td><td class="num">{r["seed"]}</td><td class="num">{r["tests"]}</td><td class="num">{r["pct"]}%</td>'
-        out.append(f'''<details class="row{" bad" if crash else ""}"><summary><table><tr>
+        out.append(f'''<details open class="row{" bad" if crash else ""}"><summary><table><tr>
 <td class="name"><b>{name[4:]}</b><small>{html.escape(note)}</small></td>
 <td class="plot">{plot}</td>{nums}</tr></table></summary>
-<pre>{html.escape(body.strip())}</pre></details>''')
+<div class="open"><pre>{html.escape(body.strip())}</pre>{chips(name)}</div></details>''')
     out.append('</div>')
 ok=len(rows)-crashes
 print(f'''<title>nfr5 Test Strip</title>
@@ -68,11 +74,17 @@ td.num{{width:3.2rem;text-align:right;font:.85rem "IBM Plex Mono",monospace;font
 .rng{{position:absolute;top:10px;height:2px;background:var(--axis)}}
 .d{{position:absolute;top:6px;width:10px;height:10px;margin-left:-5px;border-radius:50%;border:2px solid var(--sf);box-sizing:content-box}}
 .d.mu{{background:var(--mu)}} .d.best{{background:var(--best)}} .d.seed{{background:var(--seed)}}
-pre{{margin:0;padding:.6rem 1rem .8rem;font:.8rem/1.45 "IBM Plex Mono",monospace;color:var(--ink2);background:var(--bg);overflow-x:auto;white-space:pre}}
+.open{{display:grid;grid-template-columns:minmax(0,1fr) 16rem;gap:1rem;background:var(--bg);padding:.5rem 1rem .7rem;border-top:1px dashed var(--grid)}}
+.world{{display:flex;flex-wrap:wrap;gap:.3rem;align-content:flex-start;font:.75rem "IBM Plex Mono",monospace}}
+.world::before{{content:"best world";flex-basis:100%;color:var(--mute);font-size:.65rem;letter-spacing:.05em;text-transform:uppercase}}
+.world span{{padding:0 .4rem;border-radius:3px;border:1px solid var(--axis);line-height:1.5}}
+.world span.t{{background:var(--ink);color:var(--sf);border-color:var(--ink)}}
+.world span.f{{color:var(--ink2);text-decoration:line-through}}
+pre{{margin:0;padding:0;font:.8rem/1.45 "IBM Plex Mono",monospace;color:var(--ink2);background:var(--bg);overflow-x:auto;white-space:pre}}
 </style>
 <main>
 <h1>nfr5 Test Strip</h1>
-<p class="lede">Two dozen tiny goal models, each built to exercise one branch of <code>nfr5.lisp</code>'s sampler or <code>rig.lisp</code>'s keys pipeline. Each strip is distance-to-heaven on 0–100: lower is better. Click a row for its clauses.</p>
+<p class="lede">Two dozen tiny goal models, each built to exercise one branch of <code>nfr5.lisp</code>'s sampler or <code>rig.lisp</code>'s keys pipeline. Each strip is distance-to-heaven on 0–100: lower is better. Under each: its clauses, and the best world's labels — filled = t, struck = f.</p>
 <div class="verdict"><div><b>{ok}</b>ran</div><div class="c"><b>{crashes}</b>crashed</div><div><b>{len(rows)}</b>models</div></div>
 <div class="legend"><span><i style="background:var(--mu)"></i>mu, all sampled worlds</span><span><i style="background:var(--best)"></i>best world</span><span><i style="background:var(--seed)"></i>mu of seed replays</span></div>
 <div class="cols"><span>model</span><span>d2h 0 · 25 · 50 · 75 · 100</span><span>cands</span><span>seed</span><span>tests</span><span>pct</span></div>

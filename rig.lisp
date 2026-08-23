@@ -111,6 +111,10 @@
          (cands (candidates wbest ws))
          (seed  (if cands (ddmin #'passes cands 2) '()))
          (ds2   (replays seed)))
+    (format t "best,~a~{,~(~a~)=~(~a~)~}~%" name
+            (loop for x in (sort (loop for k being the hash-keys of wbest collect k)
+                                 #'string< :key #'symbol-name)
+                  append (list x (gethash x wbest))))
     (format t "~a,~d,~d,~d,~d,~d,~d,~d,~d,~d~%"
             name (pc (mu ds)) (pc (sd ds)) (pc *dbest*)
             (pc (mu ds2)) (pc (sd ds2))

@@ -21,5 +21,5 @@ keys-lisp: ## same table via nfr5.lisp + rig.lisp (park-miller rng)
 tests: ## run tests/t*.lisp (2 dozen small models) through rig.lisp
 	@tests/run.sh
 
-~/tmp/tests.html: ## paint tests/run.sh results as an html strip chart
+~/tmp/tests.html: tests/* rig.lisp nfr5.lisp ## paint tests/run.sh results as an html strip chart
 	@mkdir -p ~/tmp; tests/run.sh | tests/paint.py > $@ && echo $@
