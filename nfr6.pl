@@ -22,9 +22,12 @@
 assume(X,V) :- val(X,W), !, W = V.
 assume(X,V) :- assert(val(X,V)).
 
+flip(t,f).
+flip(f,t).
+
 %% ---- links: ++(Op, Sense, Value) --------------------------------
-++(makes,t,t).      ++(makes,f,f).
-++(breaks,t,f).     ++(breaks,f,t).
+++(makes, S,S).
+++(breaks,S,V) :- flip(S,V).
 ++(helps,S,V) :- ++(makes,S,V).      % first solution favoured 2:1,
 ++(helps,S,V) :- ++(breaks,S,V).     % so helps ~ (t t f) of the lisp
 ++(hurts,S,V) :- ++(breaks,S,V).
@@ -47,9 +50,6 @@ prove(G,       S) :- val(G,V), !, V = S.             % memo: must match sense
 prove(G,       S) :- (G <= Body), !,
                      assume(G,S), prove(Body,S).     % head first: loops close
 prove(G,       S) :- assume(G,S).                    % no clause: goal = sense
-
-flip(t,f).
-flip(f,t).
 
 %% ---- worlds ------------------------------------------------------
 world(Goals, W) :- retractall(val(_,_)),
