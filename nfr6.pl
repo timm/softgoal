@@ -64,9 +64,8 @@ sample(Goals, N, Ws) :- length(Ws, N),
                         maplist([W]>>one(Goals,1000,W), Ws).
 
 %% ---- lint: one clause per head -----------------------------------
-lint :- setof(G, B^(G <= B), Gs), member(G,Gs),
-        aggregate_all(count, (G <= _), N), N > 1,
-        print_message(warning, format("~w has ~d clauses; combine into  ~w <= or([sub1,sub2])", [G,N,G])),
+lint :- clause(G <= _, true, M), clause(G <= _, true, N), M @< N,
+        print_message(warning, format("~w has 2+ clauses; combine into  ~w <= or([sub1,sub2])", [G,G])),
         fail.
 lint.
 
