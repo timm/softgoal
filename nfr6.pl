@@ -27,7 +27,7 @@
 
 :- op(1200, xfx, <=).
 :- op(900,  fy, not).
-:- dynamic (<=)/2, val/2, replay/0.
+:- dynamic (<=)/2, val/2.
 :- discontiguous (<=)/2.
 
 %% ---- working memory: assert(val(X,V)), wiped per world -------
@@ -51,20 +51,20 @@ flip(f,t).
 
 link(Op,S,V) :- plus(Op,S,Vs), shuffle(Vs,[V|_]).
 
-%% ---- prove(Sense, Goal) --------------------------------------
-prove(G) :- prove(t, G).
+%% ---- prove(Sense, Replay, Goal); R = fresh | replay ----------
+prove(G) :- prove(t, fresh, G).
 
-prove(_, G     ) :- replay, believed(G), !.         % (4) settled = done
-prove(S, not G ) :- !, flip(S,S1), prove(S1,G).
-prove(S, and(L)) :- !, shuffle(L,R), maplist(prove(S),R).
-prove(S, or(L) ) :- replay, member(G,L), believed(G),
-                    !, prove(S,G).                  % (2) prefer settled branch
-prove(S, or(L) ) :- !, shuffle(L,[G|_]), prove(S,G).
-prove(_, _/X   ) :- replay, val(X,_), !.            % (3) seeded qual stands
-prove(S, Op/X  ) :- !, link(Op,S,V), assume(X,V).
-prove(S, G     ) :- val(G,V), !, V = S.             
-prove(S, G     ) :- (G <= Body), !, assume(G,S), prove(S,Body).     
-prove(S, G     ) :- assume(G,S).                    
+prove(_, replay, G     ) :- believed(G), !.        % (4) settled = done
+prove(S, R,      not G ) :- !, flip(S,S1), prove(S1,R,G).
+prove(S, R,      and(L)) :- !, shuffle(L,L1), maplist(prove(S,R),L1).
+prove(S, replay, or(L) ) :- member(G,L), believed(G),
+                            !, prove(S,replay,G).  % (2) prefer settled branch
+prove(S, R,      or(L) ) :- !, shuffle(L,[G|_]), prove(S,R,G).
+prove(_, replay, _/X   ) :- val(X,_), !.           % (3) seeded qual stands
+prove(S, _,      Op/X  ) :- !, link(Op,S,V), assume(X,V).
+prove(S, _,      G     ) :- val(G,V), !, V = S.
+prove(S, R,      G     ) :- (G <= Body), !, assume(G,S), prove(S,R,Body).
+prove(S, _,      G     ) :- assume(G,S).
 
 believed(not G ) :- !, believed(G).
 believed(and(L)) :- !, forall(member(G,L), believed(G)).
@@ -73,24 +73,21 @@ believed(_/X   ) :- !, val(X,_).
 believed(G     ) :- val(G,_).
 
 %% ---- worlds --------------------------------------------------
-world(Seed, Goals, W) :- retractall(val(_,_)),
-                         forall(member(X=V,Seed), assert(val(X,V))),  % (1)
-                         prove(and(Goals)),
-                         findall(X=V, val(X,V), W).
+world(R, Seed, Goals, W) :- retractall(val(_,_)),
+                            forall(member(X=V,Seed), assert(val(X,V))),  % (1)
+                            prove(t, R, and(Goals)),
+                            findall(X=V, val(X,V), W).
 
-one(Seed, Goals, Patience, W) :- Patience > 0,
-                                 ( world(Seed,Goals,W) -> true
-                                 ; P is Patience-1, one(Seed,Goals,P,W) ).
+one(R, Seed, Goals, Patience, W) :- Patience > 0,
+                                    ( world(R,Seed,Goals,W) -> true
+                                    ; P is Patience-1, one(R,Seed,Goals,P,W) ).
 
-sample(Goals, N, Ws) :- sample([], Goals, N, Ws).
-sample(_,    _, 0, []) :- !.
-sample(Seed, Goals, N, [W|Ws]) :- one(Seed,Goals,1000,W),
-                                  N1 is N-1, sample(Seed,Goals,N1,Ws).
+sample(Goals, N, Ws)  :- sample(fresh, [], Goals, N, Ws).
+replays(Seed, Goals, N, Ws) :- sample(replay, Seed, Goals, N, Ws).
 
-replays(Seed, Goals, N, Ws) :-
-  setup_call_cleanup(assert(replay),
-                     sample(Seed, Goals, N, Ws),
-                     retractall(replay)).
+sample(_, _,    _,     0, []) :- !.
+sample(R, Seed, Goals, N, [W|Ws]) :- one(R,Seed,Goals,1000,W),
+                                     N1 is N-1, sample(R,Seed,Goals,N1,Ws).
 
 %% ---- show: model painted by current world --------------------
 portray(X) :- 
