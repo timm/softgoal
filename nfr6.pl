@@ -34,9 +34,16 @@ plus(helps, S,V) :- plus(breaks,S,V).     % so helps ~ (t t f) of the lisp
 plus(hurts, S,V) :- plus(breaks,S,V).
 plus(hurts, S,V) :- plus(makes,S,V).
 
-link(Op,S,V) :- 
+flip(t,f).
+flip(f,t).
+
+link(Op,S,V) :-
   findall(W, plus(Op,S,W), [W0|Ws]),
-  (Ws = [] -> V = W0  ; maybe(2,3) -> V = W0 ; shuffle(Ws,[V|_])).
+  ( Ws = []
+    -> V = W0                        % makes, breaks: one solution
+    ;  ( maybe(2,3)
+         -> V = W0                   % helps, hurts: first branch 2/3
+         ;  shuffle(Ws,[V|_]) ) ).
 
 %% ---- prove(Sense, Goal) ------------------------------------------
 prove(G) :- prove(t, G).
