@@ -4,7 +4,7 @@
 %   swipl -g main nfr6.pl [seed]
 %
 % A model is  Head <= Body  clauses; bodies written literally as
-% and([...]), or([...]), links makes(x)/breaks(x)/helps(x)/hurts(x),
+% and([...]), or([...]), links makes/x, breaks/x, helps/x, hurts/x,
 % not(x), or a bare atom. No goal expansion. One clause per head:
 % more get a load-time warning (combine into  h <= or([s1,s2])).
 %
@@ -31,14 +31,14 @@ prove_all([G|Gs],S) :- prove(G,S), prove_all(Gs,S).
 shuffle(L,R) :- random_permutation(L,R).
 
 %% ---- links: ++(Op, Sense, Value) --------------------------------
-++(makes, S,S).
-++(breaks,S,V) :- flip(S,V).
-++(helps,S,V) :- ++(makes,S,V).      % first solution favoured 2:1,
-++(helps,S,V) :- ++(breaks,S,V).     % so helps ~ (t t f) of the lisp
-++(hurts,S,V) :- ++(breaks,S,V).
-++(hurts,S,V) :- ++(makes,S,V).
+plus(makes, S,S).
+plus(breaks,S,V) :- flip(S,V).
+plus(helps,S,V) :- plus(makes,S,V).      % first solution favoured 2:1,
+plus(helps,S,V) :- plus(breaks,S,V).     % so helps ~ (t t f) of the lisp
+plus(hurts,S,V) :- plus(breaks,S,V).
+plus(hurts,S,V) :- plus(makes,S,V).
 
-link(Op,S,V) :- findall(W, ++(Op,S,W), [W0|Ws]),
+link(Op,S,V) :- findall(W, plus(Op,S,W), [W0|Ws]),
                 ( Ws = [] -> V = W0                  % makes, breaks
                 ; maybe(2,3) -> V = W0               % helps, hurts: biased pick
                 ; shuffle(Ws,[V|_]) ).
@@ -49,8 +49,7 @@ prove(G) :- prove(G, t).
 prove(not G,   S) :- !, flip(S,S1), prove(G,S1).
 prove(and(L),  S) :- !, shuffle(L,R), prove_all(R,S).
 prove(or(L),   S) :- !, shuffle(L,[G|_]), prove(G,S).
-prove(Lnk,     S) :- Lnk =.. [Op,X], memberchk(Op,[makes,breaks,helps,hurts]),
-                     !, link(Op,S,V), assume(X,V).
+prove(Op/X,    S) :- !, link(Op,S,V), assume(X,V).
 prove(G,       S) :- val(G,V), !, V = S.             % memo: must match sense
 prove(G,       S) :- (G <= Body), !,
                      assume(G,S), prove(Body,S).     % head first: loops close
@@ -77,12 +76,12 @@ lint.
 
 %% ================= demo model: buy vs build ======================
 built    <= or([buy, diy]).
-buy      <= and([vendor, breaks(cheap), helps(fast)]).
-diy      <= and([coders, helps(cheap), hurts(fast)]).
+buy      <= and([vendor, breaks/cheap, helps/fast]).
+diy      <= and([coders, helps/cheap, hurts/fast]).
 deployed <= or([cloud, onprem]).
-cloud    <= and([helps(fast), hurts(private)]).
-onprem   <= and([makes(private), hurts(fast)]).
-usable   <= and([tested, helps(fast)]).
+cloud    <= and([helps/fast, hurts/private]).
+onprem   <= and([makes/private, hurts/fast]).
+usable   <= and([tested, helps/fast]).
 
 hard([built, deployed]).
 soft([cheap, fast, private]).
