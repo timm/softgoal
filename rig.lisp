@@ -111,6 +111,8 @@
          (cands (candidates wbest ws))
          (seed  (if cands (ddmin #'passes cands 2) '()))
          (ds2   (replays seed)))
+    (format t "seed,~a~{,~(~a~)=~(~a~)~}~%" name
+            (loop for (x . v) in seed append (list x v)))
     (format t "best,~a~{,~(~a~)=~(~a~)~}~%" name
             (loop for x in (sort (loop for k being the hash-keys of wbest collect k)
                                  #'string< :key #'symbol-name)
@@ -121,7 +123,11 @@
             (length cands) (length seed) *tests*
             (pc (/ (length seed) (length *mention*))))))
 
-(let ((args sb-ext:*posix-argv*))
-  (load (first (last args 2)))
-  (setf *seed* 1)
-  (rig (car (last args))))
+(let* ((args sb-ext:*posix-argv*)
+       (n (ignore-errors (parse-integer (car (last args))))))
+  (cond (n (load (first (last args 3)))
+           (setf *seed* n)
+           (rig (second (last args 3))))
+        (t (load (first (last args 2)))
+           (setf *seed* 1)
+           (rig (car (last args))))))
