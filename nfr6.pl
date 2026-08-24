@@ -25,6 +25,11 @@ assume(X,V) :- assert(val(X,V)).
 flip(t,f).
 flip(f,t).
 
+prove_all([],_).
+prove_all([G|Gs],S) :- prove(G,S), prove_all(Gs,S).
+
+shuffle(L,R) :- random_permutation(L,R).
+
 %% ---- links: ++(Op, Sense, Value) --------------------------------
 ++(makes, S,S).
 ++(breaks,S,V) :- flip(S,V).
@@ -36,14 +41,14 @@ flip(f,t).
 link(Op,S,V) :- findall(W, ++(Op,S,W), [W0|Ws]),
                 ( Ws = [] -> V = W0                  % makes, breaks
                 ; maybe(2,3) -> V = W0               % helps, hurts: biased pick
-                ; random_member(V,Ws) ).
+                ; shuffle(Ws,[V|_]) ).
 
 %% ---- prove(Goal, Sense) ------------------------------------------
 prove(G) :- prove(G, t).
 
 prove(not G,   S) :- !, flip(S,S1), prove(G,S1).
-prove(and(L),  S) :- !, random_permutation(L,R), maplist([G]>>prove(G,S), R).
-prove(or(L),   S) :- !, random_member(G,L), prove(G,S).
+prove(and(L),  S) :- !, shuffle(L,R), prove_all(R,S).
+prove(or(L),   S) :- !, shuffle(L,[G|_]), prove(G,S).
 prove(Lnk,     S) :- Lnk =.. [Op,X], memberchk(Op,[makes,breaks,helps,hurts]),
                      !, link(Op,S,V), assume(X,V).
 prove(G,       S) :- val(G,V), !, V = S.             % memo: must match sense
@@ -53,15 +58,16 @@ prove(G,       S) :- assume(G,S).                    % no clause: goal = sense
 
 %% ---- worlds ------------------------------------------------------
 world(Goals, W) :- retractall(val(_,_)),
-                   \+ \+ maplist(prove, Goals),      % all or nothing
+                   prove(and(Goals)),
                    findall(X=V, val(X,V), W).
 
 one(Goals, Patience, W) :- Patience > 0,
                            ( world(Goals,W) -> true
                            ; P is Patience-1, one(Goals,P,W) ).
 
-sample(Goals, N, Ws) :- length(Ws, N),
-                        maplist([W]>>one(Goals,1000,W), Ws).
+sample(_,     0, []) :- !.
+sample(Goals, N, [W|Ws]) :- one(Goals,1000,W),
+                            N1 is N-1, sample(Goals,N1,Ws).
 
 %% ---- lint: one clause per head -----------------------------------
 lint :- clause(G <= _, true, M), clause(G <= _, true, N), M @< N,
@@ -86,6 +92,6 @@ main :- lint,
         ( current_prolog_flag(argv,[A|_]), atom_number(A,Seed)
         -> set_random(seed(Seed)) ; true ),
         hard(H), soft(Q),
-        maplist([X,or([X, not X])]>>true, Q, EQ),  % engage softs: either value
+        findall(or([X, not X]), member(X,Q), EQ),  % engage softs: either value
         sample([and(H), and(EQ)], 5, Ws),
         forall(member(W,Ws), (print(W), nl)).
