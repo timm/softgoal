@@ -25,25 +25,18 @@ assume(X,V) :- assert(val(X,V)).
 shuffle(L,R) :- random_permutation(L,R).
 
 %% ---- links: ++(Op, Sense, Value) --------------------------------
-plus(makes, t,t).
-plus(makes, f,f).
-plus(breaks,t,f).
-plus(breaks,f,t).
-plus(helps, S,V) :- plus(makes,S,V).      % first solution favoured 2:1,
-plus(helps, S,V) :- plus(breaks,S,V).     % so helps ~ (t t f) of the lisp
-plus(hurts, S,V) :- plus(breaks,S,V).
-plus(hurts, S,V) :- plus(makes,S,V).
+plus(makes, S,[S]).
+plus(breaks,t,[f]).
+plus(breaks,f,[t]).
+plus(helps, t,[t,t,f]).                   % weight by repetition:
+plus(helps, f,[f,f,t]).                   % the lisp's (helps t t f)
+plus(hurts, t,[f,f,t]).
+plus(hurts, f,[t,t,f]).
 
 flip(t,f).
 flip(f,t).
 
-link(Op,S,V) :-
-  findall(W, plus(Op,S,W), [W0|Ws]),
-  ( Ws = []
-    -> V = W0                        % makes, breaks: one solution
-    ;  ( maybe(2,3)
-         -> V = W0                   % helps, hurts: first branch 2/3
-         ;  shuffle(Ws,[V|_]) ) ).
+link(Op,S,V) :- plus(Op,S,Vs), shuffle(Vs,[V|_]).
 
 %% ---- prove(Sense, Goal) ------------------------------------------
 prove(G) :- prove(t, G).
