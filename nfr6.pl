@@ -126,11 +126,9 @@ best(Ws, D, W) :- d2hs(Ws,Ds), pairs_keys_values(Ps,Ds,Ws),
 load(W) :- retractall(val(_,_)), forall(member(X=V,W), assert(val(X,V))).
 
 %% ---- show: model painted by current world --------------------
-portray(X) :- 
-  atom(X), val(X,V), col(V,C), format('\e[~wm~w\e[0m',[C,X]).
-
-col(t,32). % green
-col(f,31). % red; unlabeled stay plain
+portray(X) :- atom(X), val(X,t), !, format('~w:T',[X]).
+portray(X) :- atom(X), val(X,f), !, format('~w:F',[X]).
+% unlabeled (ignored) atoms print bare
 
 show :- forall((H <= B), (print(H <= B), nl)),
         hard(Hs), soft(Qs),
@@ -164,5 +162,5 @@ main :-
      findall(or([X, not X]), member(X,Q), EQ), % engage softs: either value
      sample([and(H), and(EQ)], 100, Ws),
      best(Ws, D, Best),
-     format('100 worlds; best d2h = ~2f~n~p~n~n', [D, Best]),
+     format('100 worlds; best d2h = ~2f~n~w~n~n', [D, Best]),
      load(Best), show.                         % painted by the BEST world
