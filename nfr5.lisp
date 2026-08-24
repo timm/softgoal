@@ -60,6 +60,11 @@
       (add g (flip s) w))
     t))
 
+(defun won (g w s)
+  "isamp g; a symbol branch must also end up labeled s"
+  (and (isamp g w s)
+       (or (not (symbolp g)) (eq (gethash g w) s))))
+
 (defun isamp (g w &optional (s 't))              ; s: the sense to argue for
   (cond
     ((and *replay* (or (symbolp g) (not (eq (car g) '=))) (believed g w)) t)
@@ -73,7 +78,8 @@
     ((eq (car g) 'and) (every (lambda (x) (isamp x w s)) (shuffled (cdr g))))
     ((eq (car g) 'or)  (or (and *replay*         ; a settled branch = done
                                 (some (lambda (x) (believed x w)) (cdr g)))
-                           (isamp (pick (cdr g)) w s)))
+                           (some (lambda (x) (won x w s))  ; branch must END
+                                 (shuffled (cdr g)))))     ; labeled s, else next
     ((assoc (car g) *links*)
      (believe (second g)
               (let ((v (pick (cdr (assoc (car g) *links*)))))
