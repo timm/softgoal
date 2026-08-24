@@ -62,6 +62,15 @@ sample(_,     0, []) :- !.
 sample(Goals, N, [W|Ws]) :- one(Goals,1000,W),
                             N1 is N-1, sample(Goals,N1,Ws).
 
+%% ---- show: model painted by current world -----------------------
+portray(X) :- atom(X), val(X,V), col(V,C), format('\e[~wm~w\e[0m',[C,X]).
+col(t,32).                                 % green
+col(f,31).                                 % red; unlabeled stay plain
+
+show :- forall((H <= B), (print(H <= B), nl)),
+        hard(Hs), soft(Qs),
+        format('hard: ~p~nsoft: ~p~n', [Hs,Qs]).
+
 %% ---- lint: one clause per head -----------------------------------
 lint :- clause(G <= _, true, M), clause(G <= _, true, N), M @< N,
         print_message(warning, format("~w has 2+ clauses; combine into  ~w <= or([sub1,sub2])", [G,G])),
@@ -87,4 +96,5 @@ main :- lint,
         hard(H), soft(Q),
         findall(or([X, not X]), member(X,Q), EQ),  % engage softs: either value
         sample([and(H), and(EQ)], 5, Ws),
-        forall(member(W,Ws), (print(W), nl)).
+        forall(member(W,Ws), (print(W), nl)),
+        nl, show.                          % painted by the last world
