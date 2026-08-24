@@ -15,6 +15,8 @@
 (defvar *heads* nil)
 (defvar *seed*  1)
 
+(defun flip (s) (if (eq s 't) 'f 't))
+
 (defmacro <- (head body)
   `(progn (pushnew ',head *heads*)
           (setf (get ',head 'rules)
@@ -49,30 +51,34 @@
 (defun believe (x v w)
   (if (known x w) (eq (gethash x w) v) (add x v w)))
 
-(defun derive (g w)
-  "try one body under g=t; on failure undo and deny: g=f"
+(defun derive (g w s)
+  "try one body under g=s; on failure undo and deny: g=(flip s)"
   (let ((mark (mark)))
-    (add g 't w)
-    (unless (isamp (pick (get g 'rules)) w)
+    (add g s w)
+    (unless (isamp (pick (get g 'rules)) w s)
       (undo mark w)
-      (add g 'f w))
+      (add g (flip s) w))
     t))
 
-(defun isamp (g w)
+(defun isamp (g w &optional (s 't))              ; s: the sense to argue for
   (cond
     ((and *replay* (or (symbolp g) (not (eq (car g) '=))) (believed g w)) t)
     ((symbolp g)
      (cond ((known g w)     t)                   ; memo
-           ((get g 'rules)  (derive g w))
-           (t               (add g 't w))))      ; fiat: abduce to t
+           ((get g 'rules)  (derive g w s))
+           (t               (add g s w))))       ; fiat: abduce to sense
+    ((eq (car g) 'not) (isamp (second g) w (flip s)))  ; not reverses sense
     ((eq (car g) '=)   (believe (second g) (third g) w))
-    ((eq (car g) 'seq) (every (lambda (x) (isamp x w)) (cdr g)))
-    ((eq (car g) 'and) (every (lambda (x) (isamp x w)) (shuffled (cdr g))))
+    ((eq (car g) 'seq) (every (lambda (x) (isamp x w s)) (cdr g)))
+    ((eq (car g) 'and) (every (lambda (x) (isamp x w s)) (shuffled (cdr g))))
     ((eq (car g) 'or)  (or (and *replay*         ; a settled branch = done
                                 (some (lambda (x) (believed x w)) (cdr g)))
-                           (isamp (pick (cdr g)) w)))
+                           (isamp (pick (cdr g)) w s)))
     ((assoc (car g) *links*)
-     (believe (second g) (pick (cdr (assoc (car g) *links*))) w))
+     (believe (second g)
+              (let ((v (pick (cdr (assoc (car g) *links*)))))
+                (if (eq s 't) v (flip v)))       ; links flip under f-sense
+              w))
     (t nil)))
 
 (defun tag (x w)
