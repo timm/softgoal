@@ -75,6 +75,25 @@
      (believe (second g) (pick (cdr (assoc (car g) *links*))) w))
     (t nil)))
 
+(defun tag (x w)
+  (if (known x w)
+      (format nil "~(~a~):~:[F~;T~]" x (eq (gethash x w) 't))
+      (format nil "~(~a~)" x)))
+
+(defun pretty (g w)
+  (cond ((symbolp g) (tag g w))
+        ((member (car g) '(and or seq))
+         (format nil "(~(~a~)~{ ~a~})" (car g)
+                 (mapcar (lambda (x) (pretty x w)) (cdr g))))
+        ((eq (car g) '=)
+         (format nil "(= ~a ~(~a~))" (tag (second g) w) (third g)))
+        (t (format nil "(~(~a~) ~a)" (car g) (tag (second g) w)))))
+
+(defun show (w)
+  (dolist (h (reverse *heads*))
+    (dolist (b (get h 'rules))
+      (format t "(<- ~a ~a)~%" (tag h w) (pretty b w)))))
+
 (defun sample (query &key beliefs replay (n 20) (patience 1000))
   (let ((*replay* replay) worlds (got 0) (miss 0))
     (loop while (and (< got n) (< miss patience))
