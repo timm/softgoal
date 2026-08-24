@@ -22,23 +22,21 @@
 assume(X,V) :- val(X,W), !, W = V.
 assume(X,V) :- assert(val(X,V)).
 
-flip(t,f).
-flip(f,t).
-
 shuffle(L,R) :- random_permutation(L,R).
 
 %% ---- links: ++(Op, Sense, Value) --------------------------------
-plus(makes, S,S).
-plus(breaks,S,V) :- flip(S,V).
-plus(helps,S,V) :- plus(makes,S,V).      % first solution favoured 2:1,
-plus(helps,S,V) :- plus(breaks,S,V).     % so helps ~ (t t f) of the lisp
-plus(hurts,S,V) :- plus(breaks,S,V).
-plus(hurts,S,V) :- plus(makes,S,V).
+plus(makes, t,t).
+plus(makes, f,f).
+plus(breaks,t,f).
+plus(breaks,f,t).
+plus(helps, S,V) :- plus(makes,S,V).      % first solution favoured 2:1,
+plus(helps, S,V) :- plus(breaks,S,V).     % so helps ~ (t t f) of the lisp
+plus(hurts, S,V) :- plus(breaks,S,V).
+plus(hurts, S,V) :- plus(makes,S,V).
 
-link(Op,S,V) :- findall(W, plus(Op,S,W), [W0|Ws]),
-                ( Ws = [] -> V = W0                  % makes, breaks
-                ; maybe(2,3) -> V = W0               % helps, hurts: biased pick
-                ; shuffle(Ws,[V|_]) ).
+link(Op,S,V) :- 
+  findall(W, plus(Op,S,W), [W0|Ws]),
+  (Ws = [] -> V = W0  ; maybe(2,3) -> V = W0 ; shuffle(Ws,[V|_])).
 
 %% ---- prove(Sense, Goal) ------------------------------------------
 prove(G) :- prove(t, G).
