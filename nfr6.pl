@@ -25,9 +25,6 @@ assume(X,V) :- assert(val(X,V)).
 flip(t,f).
 flip(f,t).
 
-prove_all([],_).
-prove_all([G|Gs],S) :- prove(G,S), prove_all(Gs,S).
-
 shuffle(L,R) :- random_permutation(L,R).
 
 %% ---- links: ++(Op, Sense, Value) --------------------------------
@@ -43,17 +40,16 @@ link(Op,S,V) :- findall(W, plus(Op,S,W), [W0|Ws]),
                 ; maybe(2,3) -> V = W0               % helps, hurts: biased pick
                 ; shuffle(Ws,[V|_]) ).
 
-%% ---- prove(Goal, Sense) ------------------------------------------
-prove(G) :- prove(G, t).
+%% ---- prove(Sense, Goal) ------------------------------------------
+prove(G) :- prove(t, G).
 
-prove(not G,   S) :- !, flip(S,S1), prove(G,S1).
-prove(and(L),  S) :- !, shuffle(L,R), prove_all(R,S).
-prove(or(L),   S) :- !, shuffle(L,[G|_]), prove(G,S).
-prove(Op/X,    S) :- !, link(Op,S,V), assume(X,V).
-prove(G,       S) :- val(G,V), !, V = S.             % memo: must match sense
-prove(G,       S) :- (G <= Body), !,
-                     assume(G,S), prove(Body,S).     % head first: loops close
-prove(G,       S) :- assume(G,S).                    % no clause: goal = sense
+prove(S, not G ) :- !, flip(S,S1), prove(S1,G).
+prove(S, and(L)) :- !, shuffle(L,R), maplist(prove(S),R).
+prove(S, or(L) ) :- !, shuffle(L,[G|_]), prove(S,G).
+prove(S, Op/X  ) :- !, link(Op,S,V), assume(X,V).
+prove(S, G     ) :-    val(G,V), !, V = S.             
+prove(S, G     ) :-    (G <= Body), !, assume(G,S), prove(S,Body).     
+prove(S, G     ) :-    assume(G,S).                    
 
 %% ---- worlds ------------------------------------------------------
 world(Goals, W) :- retractall(val(_,_)),
