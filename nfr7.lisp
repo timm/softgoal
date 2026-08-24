@@ -4,14 +4,18 @@
 ;;;;   (and ...)  shuffled conjunction    (or ...) try branches till
 ;;;;   (= x v)    demand (chk or add)              one ENDS labeled s
 ;;;;   (seq ...)  ordered and             (not g)  argue the reverse
-;;;;   (helps x)  weighted link           atom     label it via rules,
+;;;;   (+ x)      weighted link           atom     label it via rules,
 ;;;;                                              else fiat to sense
 ;;;; Proofs carry a sense s (usually t); (not g) flips it. Links draw
 ;;;; from per-sense bags -- the bag IS the link strength, both flips
 ;;;; are data. Denial is not death: a failed body denies its head and
 ;;;; the walk goes on; worlds die only at (= ...) demands. Replay
 ;;;; (*replay*) treats believed goals as settled. RNG is park-miller.
-(defvar *links* '((makes  (t)     (f))       ; op, bag under t, under f
+(defvar *links* '((++     (t)     (f))       ; op, bag under t, under f
+                  (--     (f)     (t))
+                  (+      (t t f) (f f t))
+                  (-      (f f t) (t t f))
+                  (makes  (t)     (f))       ; old spellings: same bags
                   (breaks (f)     (t))
                   (helps  (t t f) (f f t))
                   (hurts  (f f t) (t t f))))
@@ -100,23 +104,14 @@
                      (t (incf miss)))))
     (nreverse worlds)))
 
-;;; ---- show: the model, each atom tagged by one world ---------
-(defun tag (x w)
-  (if (known x w)
-      (format nil "~(~a~):~:[F~;T~]" x (eq (gethash x w) 't))
-      (format nil "~(~a~)" x)))
-
-(defun pretty (g w)
-  (cond ((symbolp g) (tag g w))
-        ((member (car g) '(and or seq))
-         (format nil "(~(~a~)~{ ~a~})" (car g)
-                 (mapcar (lambda (x) (pretty x w)) (cdr g))))
-        ((eq (car g) 'not) (format nil "(not ~a)" (pretty (second g) w)))
-        ((eq (car g) '=)
-         (format nil "(= ~a ~(~a~))" (tag (second g) w) (third g)))
-        (t (format nil "(~(~a~) ~a)" (car g) (tag (second g) w)))))
+;;; ---- show: labeled atoms swap to (++ x) / (-- x), then print --
+(defun paint (g w)
+  (cond ((and (symbolp g) (known g w))
+         (list (if (eq (gethash g w) 't) '++ '--) g))
+        ((consp g) (mapcar (lambda (x) (paint x w)) g))
+        (t g)))
 
 (defun show (w)
   (dolist (h (reverse *heads*))
     (dolist (b (get h 'rules))
-      (format t "(<- ~a ~a)~%" (tag h w) (pretty b w)))))
+      (format t "~(~a~)~%" (paint `(<- ,h ,b) w)))))
