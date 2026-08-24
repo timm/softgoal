@@ -89,6 +89,42 @@ sample(_, _,    _,     0, []) :- !.
 sample(R, Seed, Goals, N, [W|Ws]) :- one(R,Seed,Goals,1000,W),
                                      N1 is N-1, sample(R,Seed,Goals,N1,Ws).
 
+%% ---- scoring: d2h = distance to heaven (lower = better) ------
+atoms([],     []) :- !.
+atoms([G|Gs], As) :- !, atoms(G,A1), atoms(Gs,A2), append(A1,A2,As).
+atoms(not G,  As) :- !, atoms(G,As).
+atoms(and(L), As) :- !, atoms(L,As).
+atoms(or(L),  As) :- !, atoms(L,As).
+atoms(_/X,   [X]) :- !.
+atoms(X,     [X]).
+
+leaves(Ls) :- soft(Qs),
+              findall(A, (clause(H <= B,true), atoms([H,B],A0), member(A,A0)), L0),
+              sort(L0, As),
+              findall(A, (member(A,As), \+ (A <= _), \+ memberchk(A,Qs)), Ls).
+
+wons(Xs, W, N) :- findall(X, (member(X,Xs), memberchk(X=t,W)), Ts), length(Ts,N).
+
+score(Qs, Ls, W, B-F) :- wons(Qs,W,B), wons(Ls,W,F).   % benefit-footprint
+
+nrm(Lo, Hi, _, 0.5) :- Hi =:= Lo, !.
+nrm(Lo, Hi, X, N)   :- N is (X-Lo)/(Hi-Lo).
+
+d2hs(Ws, Ds) :- soft(Qs), leaves(Ls),
+                maplist(score(Qs,Ls), Ws, BFs),
+                pairs_keys_values(BFs, Bs, Fs),
+                min_list(Bs,B0), max_list(Bs,B1),
+                min_list(Fs,F0), max_list(Fs,F1),
+                maplist(d2h(B0-B1, F0-F1), BFs, Ds).
+
+d2h(B0-B1, F0-F1, B-F, D) :- nrm(B0,B1,B,NB), nrm(F0,F1,F,NF),
+                             D is sqrt(((1-NB)^2 + NF^2)/2).
+
+best(Ws, D, W) :- d2hs(Ws,Ds), pairs_keys_values(Ps,Ds,Ws),
+                  msort(Ps, [D-W|_]).
+
+load(W) :- retractall(val(_,_)), forall(member(X=V,W), assert(val(X,V))).
+
 %% ---- show: model painted by current world --------------------
 portray(X) :- 
   atom(X), val(X,V), col(V,C), format('\e[~wm~w\e[0m',[C,X]).
@@ -126,9 +162,7 @@ main :-
   -> set_random(seed(Seed)) ; true ),
      hard(H), soft(Q),
      findall(or([X, not X]), member(X,Q), EQ), % engage softs: either value
-     sample([and(H), and(EQ)], 5, Ws),
-     forall(member(W,Ws), (print(W), nl)),
-     nl, show,                          % painted by the last world
-     nl, print(replaying([buy=t])), nl,
-     replays([buy=t], [and(H), and(EQ)], 5, Rs),
-     forall(member(R,Rs), (print(R), nl)).
+     sample([and(H), and(EQ)], 100, Ws),
+     best(Ws, D, Best),
+     format('100 worlds; best d2h = ~2f~n~p~n~n', [D, Best]),
+     load(Best), show.                         % painted by the BEST world
